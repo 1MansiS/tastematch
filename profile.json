@@ -1,0 +1,20 @@
+{
+  "profile_name": "Mansi",
+  "food": {
+    "diet_type": "vegetarian",
+    "must_have": [],
+    "nice_to_have": ["high protein", "middle eastern", "mediterranean"],
+    "loved_ingredients": ["lentils", "halloumi", "chickpeas", "paneer", "falafel"],
+    "avoid_ingredients": ["eggs", "gelatin", "rennet"],
+    "avoid_vibes": ["heavy cream", "butter-heavy"],
+    "allergens": [],
+    "intolerances": []
+  },
+  "coffee": {
+    "interested_in": ["artisan", "single origin", "pour over", "flat white"],
+    "milk_preference": "oat",
+    "wants_food_menu": true,
+    "food_preferences": ["baked goods", "pastries", "sourdough"],
+    "avoid": ["chains", "pod coffee", "flavored syrups"]
+  }
+}

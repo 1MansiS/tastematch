@@ -8,6 +8,14 @@ Built by @1MansiS · github.com/1MansiS/tastematch
 
 ---
 
+## 🐍 Python Environment
+
+- Always run Python commands inside the `.venv` virtual environment
+- Activate with `source .venv/bin/activate` before any `python`, `pytest`, or `pip` command
+- When chaining shell commands, prefix with `source .venv/bin/activate &&`
+
+---
+
 ## 🏗️ Architecture Rules (never break these)
 
 - LLM layer is ALWAYS swappable via `llm/factory.py` — never import a provider directly in agent code

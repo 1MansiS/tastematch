@@ -152,29 +152,45 @@ A fixed pipeline breaks. An agent that decides, retries, and recovers doesn't.
 TasteMatch is provider-agnostic. Configure your preferred LLM in `config.json`.
 Swap providers without changing a single line of agent code.
 
+**1. Set your provider in `config.json`:**
+
 ```json
 {
   "llm": {
-    "provider": "ollama",
-    "text_model": "llama3.1:8b",
-    "vision_model": "llama3.2-vision:11b",
-    "base_url": "http://localhost:11434"
+    "provider": "groq",
+    "text_model": "llama-3.1-8b-instant",
+    "vision_model": "llama-3.2-11b-vision-preview"
   }
 }
 ```
 
+**2. Add your API key to `.env`** (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+# then edit .env and fill in the key for your chosen provider
+```
+
+```
+# .env
+GROQ_API_KEY=gsk_...        # if provider = groq
+GEMINI_API_KEY=AIza...      # if provider = gemini
+```
+
+Only the key for your active provider needs to be set. The file is gitignored — never commit it.
+
 ### Supported Providers
 
-| Provider | Text Model | Vision Model | Cost | Setup |
-|----------|-----------|--------------|------|-------|
-| `anthropic` | claude-sonnet-4-6 | claude-sonnet-4-6 | ~$0.02/scan | API key |
-| `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | API key |
-| `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | Local |
-| `groq` | llama3-8b-8192 | — | Free tier | API key |
+| Provider | Text Model | Vision Model | Cost | Key needed |
+|----------|-----------|--------------|------|------------|
+| `groq` | llama-3.1-8b-instant | llama-3.2-11b-vision-preview | Free tier | `GROQ_API_KEY` |
+| `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | `GEMINI_API_KEY` |
+| `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | none (local) |
+| `anthropic` | claude-sonnet-4-6 | claude-sonnet-4-6 | ~$0.02/scan | `ANTHROPIC_API_KEY` |
 
-> **For development**: `ollama` — free, local, private, works offline
+> **For free cloud**: `groq` or `gemini` — no credit card required
+> **For local/offline**: `ollama` — no key needed
 > **For best quality**: `anthropic`
-> **For free cloud**: `gemini`
 
 ### Provider Abstraction
 
@@ -399,15 +415,23 @@ tastematch/
 
 ## 🔑 API Keys
 
+You only need a key for the provider you're using.
+
+| Provider | Where to get it | Free tier | Credit card needed |
+|----------|----------------|-----------|-------------------|
+| Groq | console.groq.com | ~14,400 req/day | No |
+| Gemini | aistudio.google.com | 1,500 req/day | No |
+| Anthropic | console.anthropic.com | ~$0.02/scan | Yes |
+| Ollama | local — no key needed | Unlimited | No |
+
+**Never put keys in `config.json`** — use `.env` only (it's gitignored).
+
+Other services used in later versions:
+
 | Service | Purpose | Free Tier |
 |---------|---------|-----------|
-| Anthropic API | LLM (optional) | ~$0.02/scan |
-| Google AI Studio | Gemini (optional) | 1,500 req/day |
-| Google Cloud | Places API | $200/mo credit |
-| Tavily | Fallback search | 1,000 req/mo |
-| Ollama | Local models | Free |
-
-> You only need **one** LLM provider. For zero cost, use Ollama locally.
+| Google Cloud | Places API (v0.3+) | $200/mo credit |
+| Tavily | Fallback search (v0.3+) | 1,000 req/mo |
 
 ---
 
