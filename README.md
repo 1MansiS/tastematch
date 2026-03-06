@@ -152,29 +152,43 @@ A fixed pipeline breaks. An agent that decides, retries, and recovers doesn't.
 TasteMatch is provider-agnostic. Configure your preferred LLM in `config.json`.
 Swap providers without changing a single line of agent code.
 
+**1. Set your provider in `config.json`:**
+
 ```json
 {
   "llm": {
-    "provider": "ollama",
-    "text_model": "llama3.1:8b",
-    "vision_model": "llama3.2-vision:11b",
-    "base_url": "http://localhost:11434"
+    "provider": "groq",
+    "text_model": "llama-3.1-8b-instant",
+    "vision_model": "llama-3.2-11b-vision-preview"
   }
 }
 ```
 
+**2. Add your API key to `.env`** (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+# then edit .env and fill in the key for your chosen provider
+```
+
+```
+# .env
+GROQ_API_KEY=gsk_...        # if provider = groq
+GEMINI_API_KEY=AIza...      # if provider = gemini
+```
+
+Only the key for your active provider needs to be set. The file is gitignored — never commit it.
+
 ### Supported Providers
 
-| Provider | Text Model | Vision Model | Cost | Setup |
-|----------|-----------|--------------|------|-------|
-| `anthropic` | claude-sonnet-4-6 | claude-sonnet-4-6 | ~$0.02/scan | API key |
-| `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | API key |
-| `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | Local |
-| `groq` | llama3-8b-8192 | — | Free tier | API key |
+| Provider | Text Model | Vision Model | Cost | Key needed |
+|----------|-----------|--------------|------|------------|
+| `groq` | llama-3.1-8b-instant | llama-3.2-11b-vision-preview | Free tier | `GROQ_API_KEY` |
+| `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | `GEMINI_API_KEY` |
+| `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | none (local) |
 
-> **For development**: `ollama` — free, local, private, works offline
-> **For best quality**: `anthropic`
-> **For free cloud**: `gemini`
+> **For free cloud**: `groq` or `gemini` — no credit card required
+> **For local/offline**: `ollama` — no key needed
 
 ### Provider Abstraction
 
@@ -182,8 +196,8 @@ Swap providers without changing a single line of agent code.
 tastematch/
 └── llm/
     ├── base.py       ← Abstract LLMProvider interface
-    ├── anthropic.py  ← Claude implementation
     ├── gemini.py     ← Gemini implementation
+    ├── groq.py       ← Groq implementation
     ├── ollama.py     ← Ollama implementation
     └── factory.py    ← Reads config, instantiates correct provider
 ```
@@ -285,7 +299,7 @@ Pure Python + Anthropic tool-use patterns  ← v1 (no framework)
 LangGraph                                  ← v2
 
 # LLM (swappable)
-anthropic · google-generativeai · ollama
+google-generativeai · groq · ollama
 
 # Menu retrieval
 httpx · beautifulsoup4 · pdfplumber
@@ -323,8 +337,8 @@ tastematch/
 │
 ├── llm/
 │   ├── base.py                    ← Abstract LLMProvider interface
-│   ├── anthropic.py
 │   ├── gemini.py
+│   ├── groq.py
 │   ├── ollama.py
 │   └── factory.py                 ← Instantiates correct provider
 │
@@ -352,32 +366,29 @@ tastematch/
 
 ## 🚀 Build Roadmap
 
-### v0.1 — Core Pipeline *(start here)*
-- [ ] URL input → web_fetch → LLM parse → match verdict
-- [ ] Food profile section, basic matching
-- [ ] CLI output with Rich formatting
+### v0.1 — Core Pipeline ✅
+- [x] URL input → web_fetch → LLM parse → match verdict
+- [x] Food profile section, basic matching
+- [x] CLI output with Rich formatting
+- [x] Multi-strategy retrieval with fallbacks (json-ld → Next.js RSC → __NEXT_DATA__ → trafilatura → Playwright → BeautifulSoup)
+- [x] Confidence scoring based on source quality
+- [x] Venue type detection (restaurant vs coffee shop)
+- [x] Coffee profile section + coffee-aware parser and matcher
 
 ### v0.2 — Vision Support
 - [ ] Menu image → Vision OCR → parse
 - [ ] PDF menu via pdfplumber + Vision fallback
 
-### v0.3 — Real Agent Loop
-- [ ] Multi-strategy retrieval with fallbacks
-- [ ] Confidence scoring based on source quality
-- [ ] Venue name / address → auto-find menu via Google Places
+### v0.3 — Name / Address Input
+- [ ] Venue name / address → auto-find menu via Google Places + Tavily search
 
-### v0.4 — Coffee Shop Support
-- [ ] Venue type detection (restaurant vs coffee shop)
-- [ ] Coffee profile section in profile.json
-- [ ] Coffee-aware parser and matcher
-
-### v0.5 — Profile Polish
+### v0.4 — Profile Polish
 - [ ] Full profile generalization (any diet, any preference)
 - [ ] Allergen and intolerance warnings
 - [ ] Ingredient-level loved/avoided matching
 
 ### v1.0 — OSS Release
-- [ ] All providers swappable (Anthropic / Gemini / Ollama)
+- [ ] All providers swappable (Groq / Gemini / Ollama)
 - [ ] Example profiles (vegetarian, gluten-free, no restrictions, coffee-only)
 - [ ] Full README + CONTRIBUTING.md
 - [ ] GitHub Actions CI
@@ -399,15 +410,22 @@ tastematch/
 
 ## 🔑 API Keys
 
+You only need a key for the provider you're using.
+
+| Provider | Where to get it | Free tier | Credit card needed |
+|----------|----------------|-----------|-------------------|
+| Groq | console.groq.com | ~14,400 req/day | No |
+| Gemini | aistudio.google.com | 1,500 req/day | No |
+| Ollama | local — no key needed | Unlimited | No |
+
+**Never put keys in `config.json`** — use `.env` only (it's gitignored).
+
+Other services used in later versions:
+
 | Service | Purpose | Free Tier |
 |---------|---------|-----------|
-| Anthropic API | LLM (optional) | ~$0.02/scan |
-| Google AI Studio | Gemini (optional) | 1,500 req/day |
-| Google Cloud | Places API | $200/mo credit |
-| Tavily | Fallback search | 1,000 req/mo |
-| Ollama | Local models | Free |
-
-> You only need **one** LLM provider. For zero cost, use Ollama locally.
+| Google Cloud | Places API (v0.3+) | $200/mo credit |
+| Tavily | Fallback search (v0.3+) | 1,000 req/mo |
 
 ---
 
@@ -415,7 +433,7 @@ tastematch/
 
 | Setup | Minimum | Recommended |
 |-------|---------|-------------|
-| Cloud API (Anthropic/Gemini) | Any machine | Any machine |
+| Cloud API (Groq/Gemini) | Any machine | Any machine |
 | Local via Ollama | 8GB RAM | 16GB RAM |
 | Vision models locally | 12GB RAM | 16GB RAM (Apple Silicon ideal) |
 
@@ -427,6 +445,9 @@ tastematch/
 
 ## 🤝 Contributing
 
+> Architecture, design decisions, and product direction by [@1MansiS](https://1mansis.github.io).
+> Developed using [Claude Code](https://claude.ai/code) as an AI coding assistant.
+
 The modular design means contributions are naturally scoped:
 - New LLM provider → add `llm/yourprovider.py`
 - New input type → add `tools/your_source.py`
@@ -434,6 +455,8 @@ The modular design means contributions are naturally scoped:
 - New output format → add formatter to `verdict.py`
 
 None of these touch the core agent loop. See `CONTRIBUTING.md` for details.
+
+**Looking for a provider to add?** Anthropic (Claude) support would be a great community contribution — the abstract interface in `llm/base.py` makes it a one-file addition.
 
 ---
 

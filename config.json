@@ -1,0 +1,7 @@
+{
+  "llm": {
+    "provider": "groq",
+    "text_model": "llama-3.1-8b-instant",
+    "vision_model": "llama-3.1-8b-instant"
+  }
+}
