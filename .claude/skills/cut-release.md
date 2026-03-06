@@ -14,7 +14,7 @@ Invoke when a version milestone is ready to ship (e.g. "cut v0.2", "ship v1.0").
    - Roadmap items checked off correctly?
    - Supported providers / input types / venue types accurate?
    - Project structure matches actual files?
-   - VeggieTrek integration section still accurate?
+
 
 3. **Review MEMORY.md**
    - Any session learnings worth promoting permanently to CLAUDE.md?

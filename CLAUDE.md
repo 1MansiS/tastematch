@@ -4,7 +4,6 @@
 Agentic menu analyzer. Given any restaurant or coffee shop (name / URL / address /
 menu image), autonomously retrieves its menu and scores it against a personal taste profile.
 
-Future: plugs into VeggieTrek travel agent as its venue scoring engine.
 Built by @1MansiS · github.com/1MansiS/tastematch
 
 ---
@@ -161,10 +160,9 @@ tastematch/
 
 ## 🔭 Future Scope (design for, don't build yet)
 
-TasteMatch will become VeggieTrek's venue scoring engine in a future version.
 Keep this in mind when making architectural decisions:
 - `profile.json` sections must remain independently loadable per venue type
-- The verdict output schema must remain stable — VeggieTrek will consume it
+- The verdict output schema must remain stable
 - No venue-type-specific logic should leak into `retrieval.py` or `parser.py`
 - New venue types (beer, ice cream, etc.) must require zero agent code changes
 

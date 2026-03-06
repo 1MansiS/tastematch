@@ -1,13 +1,15 @@
 # 🍽️ TasteMatch
 
+![Status](https://img.shields.io/badge/status-active%20development-brightgreen)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 > *Give it any restaurant or café. It tells you how well it matches your personal taste profile.*
 
 TasteMatch is an agentic menu analyzer that autonomously retrieves a venue's menu —
 from any source, in any format — and scores it against your personal taste profile.
 
 Designed for any venue type. v1.0 covers **restaurants** and **coffee shops**.
-Built to plug directly into the [VeggieTrek](#-relationship-to-veggietrek-travel-agent)
-travel agent as a scoring tool.
 
 **Status**: 🚧 Active Development · **Author**: [@1MansiS](https://1mansis.github.io)
 
@@ -280,7 +282,7 @@ Python 3.11+
 
 # Agent orchestration
 Pure Python + Anthropic tool-use patterns  ← v1 (no framework)
-LangGraph                                  ← v2, for VeggieTrek integration
+LangGraph                                  ← v2
 
 # LLM (swappable)
 anthropic · google-generativeai · ollama
@@ -395,27 +397,6 @@ tastematch/
 
 ---
 
-## 🗺️ Relationship to VeggieTrek (Travel Agent)
-
-TasteMatch is intentionally built as a **standalone module first**.
-When the VeggieTrek travel agent launches, TasteMatch becomes its
-venue scoring engine — no redesign required.
-
-```
-VeggieTrek (Travel Agent)            ← future
-    └── TasteMatch (this project)
-            ├── Venue type detection
-            ├── Menu retrieval agent
-            ├── Taste profile matching
-            └── Match score + verdict
-                    ↓
-            "Here are your top Berlin restaurants,
-             scored against your taste profile,
-             pre-pinned to Google Maps."
-```
-
----
-
 ## 🔑 API Keys
 
 | Service | Purpose | Free Tier |
@@ -456,4 +437,4 @@ None of these touch the core agent loop. See `CONTRIBUTING.md` for details.
 
 ---
 
-*Built by [@1MansiS](https://1mansis.github.io) · Part of the VeggieTrek ecosystem*
+*Built by [@1MansiS](https://1mansis.github.io)*
