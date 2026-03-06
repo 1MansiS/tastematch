@@ -448,6 +448,9 @@ Other services used in later versions:
 
 ## 🤝 Contributing
 
+> Architecture, design decisions, and product direction by [@1MansiS](https://1mansis.github.io).
+> Developed using [Claude Code](https://claude.ai/code) as an AI coding assistant.
+
 The modular design means contributions are naturally scoped:
 - New LLM provider → add `llm/yourprovider.py`
 - New input type → add `tools/your_source.py`
