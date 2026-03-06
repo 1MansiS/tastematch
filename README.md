@@ -368,26 +368,23 @@ tastematch/
 
 ## 🚀 Build Roadmap
 
-### v0.1 — Core Pipeline *(start here)*
-- [ ] URL input → web_fetch → LLM parse → match verdict
-- [ ] Food profile section, basic matching
-- [ ] CLI output with Rich formatting
+### v0.1 — Core Pipeline ✅
+- [x] URL input → web_fetch → LLM parse → match verdict
+- [x] Food profile section, basic matching
+- [x] CLI output with Rich formatting
+- [x] Multi-strategy retrieval with fallbacks (json-ld → Next.js RSC → __NEXT_DATA__ → trafilatura → Playwright → BeautifulSoup)
+- [x] Confidence scoring based on source quality
+- [x] Venue type detection (restaurant vs coffee shop)
+- [x] Coffee profile section + coffee-aware parser and matcher
 
 ### v0.2 — Vision Support
 - [ ] Menu image → Vision OCR → parse
 - [ ] PDF menu via pdfplumber + Vision fallback
 
-### v0.3 — Real Agent Loop
-- [ ] Multi-strategy retrieval with fallbacks
-- [ ] Confidence scoring based on source quality
-- [ ] Venue name / address → auto-find menu via Google Places
+### v0.3 — Name / Address Input
+- [ ] Venue name / address → auto-find menu via Google Places + Tavily search
 
-### v0.4 — Coffee Shop Support
-- [ ] Venue type detection (restaurant vs coffee shop)
-- [ ] Coffee profile section in profile.json
-- [ ] Coffee-aware parser and matcher
-
-### v0.5 — Profile Polish
+### v0.4 — Profile Polish
 - [ ] Full profile generalization (any diet, any preference)
 - [ ] Allergen and intolerance warnings
 - [ ] Ingredient-level loved/avoided matching
