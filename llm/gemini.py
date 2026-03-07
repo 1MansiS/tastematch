@@ -41,7 +41,7 @@ class GeminiProvider(LLMProvider):
             )
             return response.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-    async def vision(self, prompt: str, image: bytes) -> str:
+    async def vision(self, prompt: str, image: bytes, mime_type: str = "image/jpeg") -> str:
         image_b64 = base64.b64encode(image).decode()
         url = f"{_BASE_URL}/{self.vision_model}:generateContent?key={self._api_key}"
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -55,7 +55,7 @@ class GeminiProvider(LLMProvider):
                                 {"text": prompt},
                                 {
                                     "inline_data": {
-                                        "mime_type": "image/jpeg",
+                                        "mime_type": mime_type,
                                         "data": image_b64,
                                     }
                                 },
