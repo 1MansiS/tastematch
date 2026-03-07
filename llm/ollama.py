@@ -24,7 +24,7 @@ class OllamaProvider(LLMProvider):
             response.raise_for_status()
             return response.json()["message"]["content"]
 
-    async def vision(self, prompt: str, image: bytes) -> str:
+    async def vision(self, prompt: str, image: bytes, mime_type: str = "image/jpeg") -> str:
         image_b64 = base64.b64encode(image).decode()
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(

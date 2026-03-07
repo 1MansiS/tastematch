@@ -44,7 +44,7 @@ class GroqProvider(LLMProvider):
             )
             return data["choices"][0]["message"]["content"]
 
-    async def vision(self, prompt: str, image: bytes) -> str:
+    async def vision(self, prompt: str, image: bytes, mime_type: str = "image/jpeg") -> str:
         image_b64 = base64.b64encode(image).decode()
         async with httpx.AsyncClient(timeout=60.0) as client:
             data = await self._post_with_retry(
@@ -60,7 +60,7 @@ class GroqProvider(LLMProvider):
                                 {
                                     "type": "image_url",
                                     "image_url": {
-                                        "url": f"data:image/jpeg;base64,{image_b64}"
+                                        "url": f"data:{mime_type};base64,{image_b64}"
                                     },
                                 },
                             ],

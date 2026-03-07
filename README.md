@@ -184,7 +184,7 @@ Only the key for your active provider needs to be set. The file is gitignored �
 | Provider | Text Model | Vision Model | Cost | Key needed |
 |----------|-----------|--------------|------|------------|
 | `groq` | llama-3.1-8b-instant | llama-3.2-11b-vision-preview | Free tier | `GROQ_API_KEY` |
-| `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | `GEMINI_API_KEY` |
+| `gemini` | gemini-2.0-flash | gemini-2.0-flash | Free tier | `GEMINI_API_KEY` |
 | `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | none (local) |
 
 > **For free cloud**: `groq` or `gemini` — no credit card required
@@ -205,7 +205,7 @@ tastematch/
 All providers expose the same two methods:
 ```python
 await provider.complete(prompt: str) -> str
-await provider.vision(prompt: str, image: bytes) -> str
+await provider.vision(prompt: str, image: bytes, mime_type: str = "image/jpeg") -> str
 ```
 
 Agent code never imports a specific provider — only the factory.
@@ -278,14 +278,13 @@ section per scan. Adding future venue types requires zero agent code changes.
 
 ## 📥 Supported Input Types
 
-| Input | Example | How it's handled |
-|-------|---------|-----------------|
-| Name + city | `"Dishoom, London"` | Google Places → website → menu |
-| Direct URL | `"https://dishoom.com/menus"` | web_fetch → parse |
-| Address | `"7 Boundary St, London"` | Google Places → website → menu |
-| Menu image | `menu.jpg` | Vision OCR → extract |
-| Menu PDF | `menu.pdf` | pdfplumber → extract, Vision fallback |
-| Raw text | pasted menu text | Direct LLM parse |
+| Input | Example | Status | How it's handled |
+|-------|---------|--------|-----------------|
+| Direct URL | `"https://dishoom.com/menus"` | ✅ v0.1 | web_fetch → parse |
+| Menu image | `menu.jpg` | ✅ v0.2 | Vision OCR → parse |
+| Menu PDF | `menu.pdf` | ✅ v0.2 | pypdf → parse |
+| Name + city | `"Dishoom, London"` | v0.3 | Google Places → website → menu |
+| Address | `"7 Boundary St, London"` | v0.3 | Google Places → website → menu |
 
 ---
 
@@ -302,7 +301,7 @@ LangGraph                                  ← v2
 google-generativeai · groq · ollama
 
 # Menu retrieval
-httpx · beautifulsoup4 · pdfplumber
+httpx · beautifulsoup4 · pypdf
 
 # Place lookup
 googlemaps · tavily-python
@@ -359,7 +358,9 @@ tastematch/
     ├── test_parser.py
     ├── test_matcher.py
     ├── test_venue_detector.py
-    └── test_llm_factory.py
+    ├── test_llm_factory.py
+    ├── test_vision_ocr.py
+    └── test_pdf_extract.py
 ```
 
 ---
@@ -375,9 +376,11 @@ tastematch/
 - [x] Venue type detection (restaurant vs coffee shop)
 - [x] Coffee profile section + coffee-aware parser and matcher
 
-### v0.2 — Vision Support
-- [ ] Menu image → Vision OCR → parse
-- [ ] PDF menu via pdfplumber + Vision fallback
+### v0.2 — Vision Support ✅
+- [x] Menu image (.jpg .png .webp) → Vision OCR → parse
+- [x] PDF menu → text extraction (pypdf) → parse
+- [x] MIME-type-aware vision calls across all providers
+- [x] CLI accepts image and PDF file paths alongside URLs
 
 ### v0.3 — Name / Address Input
 - [ ] Venue name / address → auto-find menu via Google Places + Tavily search

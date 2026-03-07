@@ -70,29 +70,41 @@ def render_verdict(verdict: "VerdictModel") -> None:  # noqa: F821
     console.print(Panel("\n".join(lines), title=title, border_style=color))
 
 
-async def run(url: str, profile_path: str, config_path: str, debug: bool = False) -> None:
-    console.print(f"\n[dim]Analyzing:[/dim] {url}\n")
+async def run(user_input: str, profile_path: str, config_path: str, debug: bool = False) -> None:
+    console.print(f"\n[dim]Analyzing:[/dim] {user_input}\n")
 
-    input_type = classify_input(url)
+    input_type = classify_input(user_input)
     if input_type == InputType.UNKNOWN:
         console.print(
-            "[red]Error:[/red] Only URLs are supported in v0.1. "
-            "Provide a URL starting with http:// or https://"
+            "[red]Error:[/red] Unrecognized input. Provide a URL (http/https), "
+            "an image file (.jpg .png .webp), or a PDF file (.pdf)."
         )
         sys.exit(1)
 
     llm = get_provider(config_path)
     profile = load_profile(profile_path)
 
-    console.print("[dim]Fetching menu...[/dim]")
-    content, source_url, confidence = await retrieve_menu_content(url, input_type)
+    if input_type == InputType.URL:
+        console.print("[dim]Fetching menu...[/dim]")
+    elif input_type == InputType.IMAGE:
+        console.print("[dim]Reading image with vision...[/dim]")
+    else:
+        console.print("[dim]Extracting text from PDF...[/dim]")
+
+    content, source, confidence = await retrieve_menu_content(user_input, input_type, llm)
 
     if not content:
-        console.print("[red]Error:[/red] Could not fetch content from URL.")
+        if input_type == InputType.PDF:
+            console.print(
+                "[red]Error:[/red] No text found in PDF. "
+                "Scanned PDFs are not yet supported — try a text-based PDF or an image."
+            )
+        else:
+            console.print("[red]Error:[/red] Could not extract any content.")
         sys.exit(1)
 
     if debug:
-        console.print(f"\n[dim]--- Fetched content ({len(content)} chars, method will be shown via confidence) ---[/dim]")
+        console.print(f"\n[dim]--- Extracted content ({len(content)} chars) ---[/dim]")
         console.print(f"[dim]{content[:800]}[/dim]")
         console.print(f"[dim]--- end ---[/dim]\n")
 
@@ -100,20 +112,25 @@ async def run(url: str, profile_path: str, config_path: str, debug: bool = False
     console.print(f"[dim]Detected venue type:[/dim] {venue_type.value}")
 
     console.print("[dim]Parsing menu with LLM...[/dim]")
-    menu = await parse_menu(content, source_url, llm, debug=debug)
+    menu = await parse_menu(content, source, llm, debug=debug)
     console.print(f"[dim]Found {len(menu.items)} menu items[/dim]")
 
     if not menu.items:
         console.print(
             "[yellow]Warning:[/yellow] No menu items found. "
-            "The page may not contain a readable menu."
+            "The source may not contain a readable menu."
         )
         sys.exit(1)
 
     console.print("[dim]Matching against your taste profile...[/dim]")
     match_result = await match_profile(menu, profile.food, llm)
 
-    venue_name = source_url.split("//")[-1].split("/")[0]
+    if input_type == InputType.URL:
+        venue_name = source.split("//")[-1].split("/")[0]
+    else:
+        from pathlib import Path as _Path
+        venue_name = _Path(source).stem
+
     verdict = build_verdict(match_result, menu, venue_name, venue_type.value, confidence)
 
     console.print()
@@ -124,9 +141,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="tastematch",
         description="Agentic menu analyzer — scores any restaurant or coffee shop against your taste profile.",
-        epilog="Example: python main.py https://dishoom.com/menus",
+        epilog=(
+            "Examples:\n"
+            "  python main.py https://dishoom.com/menus\n"
+            "  python main.py menu.jpg\n"
+            "  python main.py menu.pdf"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("url", help="Restaurant URL to analyze (http:// or https://)")
+    parser.add_argument(
+        "input",
+        help="URL (http/https), image file (.jpg .png .webp), or PDF file (.pdf)",
+    )
     parser.add_argument(
         "--profile",
         default="profile.json",
@@ -147,7 +173,7 @@ def main() -> None:
 
     args = parser.parse_args()
     try:
-        asyncio.run(run(args.url, args.profile, args.config, args.debug))
+        asyncio.run(run(args.input, args.profile, args.config, args.debug))
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")
         if args.debug:
