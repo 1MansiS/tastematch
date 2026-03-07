@@ -186,11 +186,9 @@ Only the key for your active provider needs to be set. The file is gitignored �
 | `groq` | llama-3.1-8b-instant | llama-3.2-11b-vision-preview | Free tier | `GROQ_API_KEY` |
 | `gemini` | gemini-1.5-flash | gemini-1.5-flash | Free tier | `GEMINI_API_KEY` |
 | `ollama` | llama3.1:8b | llama3.2-vision:11b | Free | none (local) |
-| `anthropic` | claude-sonnet-4-6 | claude-sonnet-4-6 | ~$0.02/scan | `ANTHROPIC_API_KEY` |
 
 > **For free cloud**: `groq` or `gemini` — no credit card required
 > **For local/offline**: `ollama` — no key needed
-> **For best quality**: `anthropic`
 
 ### Provider Abstraction
 
@@ -198,8 +196,8 @@ Only the key for your active provider needs to be set. The file is gitignored �
 tastematch/
 └── llm/
     ├── base.py       ← Abstract LLMProvider interface
-    ├── anthropic.py  ← Claude implementation
     ├── gemini.py     ← Gemini implementation
+    ├── groq.py       ← Groq implementation
     ├── ollama.py     ← Ollama implementation
     └── factory.py    ← Reads config, instantiates correct provider
 ```
@@ -301,7 +299,7 @@ Pure Python + Anthropic tool-use patterns  ← v1 (no framework)
 LangGraph                                  ← v2
 
 # LLM (swappable)
-anthropic · google-generativeai · ollama
+google-generativeai · groq · ollama
 
 # Menu retrieval
 httpx · beautifulsoup4 · pdfplumber
@@ -339,8 +337,8 @@ tastematch/
 │
 ├── llm/
 │   ├── base.py                    ← Abstract LLMProvider interface
-│   ├── anthropic.py
 │   ├── gemini.py
+│   ├── groq.py
 │   ├── ollama.py
 │   └── factory.py                 ← Instantiates correct provider
 │
@@ -390,7 +388,7 @@ tastematch/
 - [ ] Ingredient-level loved/avoided matching
 
 ### v1.0 — OSS Release
-- [ ] All providers swappable (Anthropic / Gemini / Ollama)
+- [ ] All providers swappable (Groq / Gemini / Ollama)
 - [ ] Example profiles (vegetarian, gluten-free, no restrictions, coffee-only)
 - [ ] Full README + CONTRIBUTING.md
 - [ ] GitHub Actions CI
@@ -418,7 +416,6 @@ You only need a key for the provider you're using.
 |----------|----------------|-----------|-------------------|
 | Groq | console.groq.com | ~14,400 req/day | No |
 | Gemini | aistudio.google.com | 1,500 req/day | No |
-| Anthropic | console.anthropic.com | ~$0.02/scan | Yes |
 | Ollama | local — no key needed | Unlimited | No |
 
 **Never put keys in `config.json`** — use `.env` only (it's gitignored).
@@ -436,7 +433,7 @@ Other services used in later versions:
 
 | Setup | Minimum | Recommended |
 |-------|---------|-------------|
-| Cloud API (Anthropic/Gemini) | Any machine | Any machine |
+| Cloud API (Groq/Gemini) | Any machine | Any machine |
 | Local via Ollama | 8GB RAM | 16GB RAM |
 | Vision models locally | 12GB RAM | 16GB RAM (Apple Silicon ideal) |
 
@@ -458,6 +455,8 @@ The modular design means contributions are naturally scoped:
 - New output format → add formatter to `verdict.py`
 
 None of these touch the core agent loop. See `CONTRIBUTING.md` for details.
+
+**Looking for a provider to add?** Anthropic (Claude) support would be a great community contribution — the abstract interface in `llm/base.py` makes it a one-file addition.
 
 ---
 
