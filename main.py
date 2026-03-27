@@ -3,6 +3,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -88,8 +89,10 @@ async def run(user_input: str, profile_path: str, config_path: str, debug: bool 
         console.print("[dim]Fetching menu...[/dim]")
     elif input_type == InputType.IMAGE:
         console.print("[dim]Reading image with vision...[/dim]")
-    else:
+    elif input_type == InputType.PDF:
         console.print("[dim]Extracting text from PDF...[/dim]")
+    else:
+        console.print("[dim]Looking up venue and fetching menu...[/dim]")
 
     content, source, confidence = await retrieve_menu_content(user_input, input_type, llm)
 
@@ -102,6 +105,11 @@ async def run(user_input: str, profile_path: str, config_path: str, debug: bool 
         else:
             console.print("[red]Error:[/red] Could not extract any content.")
         sys.exit(1)
+
+    if source.startswith(("http://", "https://")):
+        parsed = urlparse(source)
+        console.print(f"[dim]Site        :[/dim] {parsed.netloc}")
+        console.print(f"[dim]Menu URL    :[/dim] {source}")
 
     if debug:
         console.print(f"\n[dim]--- Extracted content ({len(content)} chars) ---[/dim]")
@@ -125,11 +133,12 @@ async def run(user_input: str, profile_path: str, config_path: str, debug: bool 
     console.print("[dim]Matching against your taste profile...[/dim]")
     match_result = await match_profile(menu, profile.food, llm)
 
-    if input_type == InputType.URL:
-        venue_name = source.split("//")[-1].split("/")[0]
+    if input_type == InputType.NAME:
+        venue_name = user_input.split(",")[0].strip()
+    elif source.startswith(("http://", "https://")):
+        venue_name = urlparse(source).netloc
     else:
-        from pathlib import Path as _Path
-        venue_name = _Path(source).stem
+        venue_name = Path(source).stem
 
     verdict = build_verdict(match_result, menu, venue_name, venue_type.value, confidence)
 
@@ -144,14 +153,20 @@ def main() -> None:
         epilog=(
             "Examples:\n"
             "  python main.py https://dishoom.com/menus\n"
+            "  python main.py \"Dishoom, London, UK\"\n"
+            "  python main.py \"Oleana, Cambridge, MA, USA\"\n"
             "  python main.py menu.jpg\n"
-            "  python main.py menu.pdf"
+            "  python main.py menu.pdf\n"
+            "\n"
+            "  # Add --debug to see raw fetched content, LLM response, and confidence scores:\n"
+            "  python main.py \"Oleana, Cambridge, MA, USA\" --debug\n"
+            "  python main.py https://dishoom.com/menus --debug"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "input",
-        help="URL (http/https), image file (.jpg .png .webp), or PDF file (.pdf)",
+        help='URL (http/https), venue name with location ("Name, City, Country" or "Name, City, State, Country"), image file (.jpg .png .webp), or PDF file (.pdf)',
     )
     parser.add_argument(
         "--profile",

@@ -283,8 +283,8 @@ section per scan. Adding future venue types requires zero agent code changes.
 | Direct URL | `"https://dishoom.com/menus"` | ✅ v0.1 | web_fetch → parse |
 | Menu image | `menu.jpg` | ✅ v0.2 | Vision OCR → parse |
 | Menu PDF | `menu.pdf` | ✅ v0.2 | pypdf → parse |
-| Name + city | `"Dishoom, London"` | v0.3 | Google Places → website → menu |
-| Address | `"7 Boundary St, London"` | v0.3 | Google Places → website → menu |
+| Name + city | `"Dishoom, London"` | ✅ v0.3 | Places → Tavily search → web fetch |
+| Address | `"7 Boundary St, London"` | ✅ v0.3 | Places → Tavily search → web fetch |
 
 ---
 
@@ -345,8 +345,8 @@ tastematch/
 │   ├── web_fetch.py               ← Async HTML scraping
 │   ├── pdf_extract.py             ← PDF → text
 │   ├── vision_ocr.py              ← Image → text via vision model
-│   ├── places_lookup.py           ← Google Places API
-│   └── search.py                  ← Tavily fallback search
+│   ├── places_lookup.py           ← Google Places API (optional)
+│   └── search.py                  ← Tavily menu search
 │
 ├── models/
 │   ├── profile.py                 ← Pydantic: taste profile schema
@@ -360,7 +360,8 @@ tastematch/
     ├── test_venue_detector.py
     ├── test_llm_factory.py
     ├── test_vision_ocr.py
-    └── test_pdf_extract.py
+    ├── test_pdf_extract.py
+    └── test_search.py
 ```
 
 ---
@@ -382,8 +383,9 @@ tastematch/
 - [x] MIME-type-aware vision calls across all providers
 - [x] CLI accepts image and PDF file paths alongside URLs
 
-### v0.3 — Name / Address Input
-- [ ] Venue name / address → auto-find menu via Google Places + Tavily search
+### v0.3 — Name / Address Input ✅
+- [x] Venue name / address → auto-find menu via Google Places + Tavily search
+- [x] Multi-strategy fallback: Places website → Tavily URL fetch → Tavily snippets → low-confidence flag
 
 ### v0.4 — Profile Polish
 - [ ] Full profile generalization (any diet, any preference)
@@ -427,8 +429,8 @@ Other services used in later versions:
 
 | Service | Purpose | Free Tier |
 |---------|---------|-----------|
-| Google Cloud | Places API (v0.3+) | $200/mo credit |
-| Tavily | Fallback search (v0.3+) | 1,000 req/mo |
+| Google Cloud | Places API (optional, improves v0.3) | $200/mo credit |
+| Tavily | Menu search for name/address input | 1,000 req/mo free |
 
 ---
 

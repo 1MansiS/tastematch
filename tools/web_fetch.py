@@ -1,5 +1,6 @@
 import json
 import re
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -11,7 +12,7 @@ _HEADERS = {
         "Chrome/124.0 Safari/537.36"
     )
 }
-_MAX_CHARS = 12000
+_MAX_CHARS = 32000
 
 
 # ---------------------------------------------------------------------------
@@ -199,11 +200,168 @@ def _extract_trafilatura(html: str) -> str | None:
 # Extraction strategy 5: Playwright headless browser (JS-rendered pages)
 # ---------------------------------------------------------------------------
 
-_PRICE_RE = re.compile(r"[$£€]\s*\d+|\d+\s*\.\s*\d{2}")
+# ---------------------------------------------------------------------------
+# Menu content detection — multi-signal scorer
+#
+# High-end restaurants often omit prices, so price alone is a weak signal.
+# We score across four independent signal types and require ≥3 points total.
+# ---------------------------------------------------------------------------
 
-def _looks_like_menu(text: str) -> bool:
-    """Return True if *text* contains price patterns — a rough menu signal."""
-    return bool(_PRICE_RE.search(text))
+_PRICE_RE = re.compile(
+    r"[$£€]\s*\d+"        # currency symbol: $12, £9, €15
+    r"|\d+\s*\.\s*\d{2}"  # decimal price: 12.00, 9.50
+    r"|^\s*\d{1,3}\s*$",  # bare integer on its own line: "9", "13" (US menu style)
+    re.MULTILINE,
+)
+
+# Common menu section headers
+_SECTION_HEADERS: frozenset[str] = frozenset({
+    "starters", "appetizers", "small plates", "shareables",
+    "mains", "main course", "entrées", "entrees", "large plates",
+    "sides", "side dishes",
+    "desserts", "sweets", "puddings",
+    "drinks", "cocktails", "wine", "spirits", "beer", "beverages",
+    "brunch", "breakfast", "lunch", "dinner",
+    "tasting menu", "chef's menu", "à la carte", "a la carte",
+    "salads", "soups", "pasta", "pizza", "seafood",
+    "specials", "today's specials", "seasonal",
+})
+
+_SECTION_RE = re.compile(
+    r"^\s*(" + "|".join(re.escape(h) for h in _SECTION_HEADERS) + r")\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# Culinary vocabulary — cooking methods, preparations, and upscale ingredients
+_CULINARY_TERMS: frozenset[str] = frozenset({
+    # cooking methods
+    "braised", "seared", "roasted", "grilled", "smoked", "cured",
+    "pickled", "poached", "fried", "baked", "marinated", "caramelized",
+    "charred", "confit", "sautéed", "sauteed", "steamed", "tempura",
+    # preparations & sauces
+    "reduction", "aioli", "emulsion", "coulis", "jus", "purée", "puree",
+    "mousse", "tartare", "carpaccio", "bruschetta", "crostini", "vinaigrette",
+    "glaze", "marinade", "rub",
+    # ingredients common in menus
+    "truffle", "burrata", "prosciutto", "arugula", "ricotta", "mozzarella",
+    "parmesan", "pancetta", "chorizo", "halloumi", "tahini", "hummus",
+    "za'atar", "sumac", "harissa", "miso", "ponzu", "yuzu", "dashi",
+    "gnocchi", "risotto", "focaccia", "sourdough", "brioche",
+    "ribeye", "tenderloin", "short rib", "duck breast", "sea bass",
+    "scallops", "octopus", "burgers", "flatbread",
+})
+
+_CULINARY_RE = re.compile(
+    r"\b(" + "|".join(re.escape(t) for t in _CULINARY_TERMS) + r")\b",
+    re.IGNORECASE,
+)
+
+# Dietary markers — very common even on price-free fine dining menus
+_DIETARY_RE = re.compile(
+    r"\(v\)|\(vg\)|\(ve\)|\(gf\)|\(df\)|\(pb\)|\(n\)"
+    r"|vegetarian|vegan|gluten.free|dairy.free|plant.based|nut.free|contains nuts",
+    re.IGNORECASE,
+)
+
+# Score threshold to be considered menu content.
+# Threshold of 2 means:
+#   - 3+ prices alone are sufficient (regular menus with price tags)
+#   - 2+ section headers alone are sufficient
+#   - 5+ culinary terms alone are sufficient
+#   - 1 price + any other signal is sufficient
+#   - Single-signal hits (1 price, 1 header, 2 culinary words) are not enough alone
+_MENU_SCORE_THRESHOLD = 2
+
+
+def looks_like_menu(text: str) -> bool:
+    """Multi-signal check: returns True if *text* looks like restaurant menu content.
+
+    Scores across four independent signals (max 7 pts), requires ≥3:
+      - Price signals   0–2 pts  (≥1 hit = 1pt, ≥3 hits = 2pts)
+      - Section headers 0–2 pts  (≥1 header = 1pt, ≥2 headers = 2pts)
+      - Culinary vocab  0–2 pts  (≥2 terms = 1pt, ≥5 terms = 2pts)
+      - Dietary markers 0–1 pt   (≥1 marker = 1pt)
+    """
+    if not text:
+        return False
+
+    score = 0
+
+    price_hits = len(_PRICE_RE.findall(text))
+    if price_hits >= 3:
+        score += 2
+    elif price_hits >= 1:
+        score += 1
+
+    section_hits = len(_SECTION_RE.findall(text))
+    if section_hits >= 2:
+        score += 2
+    elif section_hits >= 1:
+        score += 1
+
+    culinary_hits = len(_CULINARY_RE.findall(text))
+    if culinary_hits >= 5:
+        score += 2
+    elif culinary_hits >= 2:
+        score += 1
+
+    if _DIETARY_RE.search(text):
+        score += 1
+
+    return score >= _MENU_SCORE_THRESHOLD
+
+
+_MENU_LINK_KEYWORDS: frozenset[str] = frozenset({
+    "menu", "menus", "food", "dine", "dining", "dinner", "lunch",
+    "brunch", "breakfast", "eat", "drinks", "cocktails", "wine",
+})
+
+
+def find_menu_links(html: str, base_url: str) -> list[str]:
+    """Find same-domain menu-related links in *html*, ranked by keyword score.
+
+    Scans anchor tags for hrefs that share the same domain as *base_url* and
+    whose href path or link text contains a menu-related keyword.  Hash
+    fragments are preserved (e.g. /#dinner-menu) so that Playwright can
+    navigate to the correct section.  Returns deduplicated absolute URLs
+    sorted by relevance score, highest first.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    base_netloc = urlparse(base_url).netloc
+
+    seen: set[str] = set()
+    candidates: list[tuple[int, str]] = []
+
+    for a in soup.find_all("a", href=True):
+        href: str = a["href"].strip()
+        if not href or href.startswith(("mailto:", "tel:", "javascript:")):
+            continue
+        abs_url = urljoin(base_url, href)
+        parsed = urlparse(abs_url)
+        if parsed.netloc != base_netloc:
+            continue
+        # Normalize: strip query params but keep fragment (e.g. /#dinner-menu)
+        normalized = parsed._replace(query="").geturl()
+        if normalized in seen or normalized == base_url:
+            continue
+        seen.add(normalized)
+
+        href_lower = href.lower()
+        text_lower = (a.get_text(strip=True) or "").lower()
+        score = sum(1 for kw in _MENU_LINK_KEYWORDS if kw in href_lower or kw in text_lower)
+        if score > 0:
+            candidates.append((score, abs_url))
+
+    candidates.sort(key=lambda x: -x[0])
+    return [url for _, url in candidates]
+
+
+async def fetch_raw_html(url: str) -> str:
+    """Fetch *url* and return raw HTML without any extraction."""
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        response = await client.get(url, headers=_HEADERS)
+        response.raise_for_status()
+        return response.text
 
 
 async def _extract_with_playwright(url: str) -> str | None:
@@ -331,7 +489,7 @@ async def fetch_and_clean(url: str) -> tuple[str, str, str]:
                 method = "next_data"
             else:
                 trafilatura_result = _extract_trafilatura(html)
-                if trafilatura_result and _looks_like_menu(trafilatura_result):
+                if trafilatura_result and looks_like_menu(trafilatura_result):
                     result = trafilatura_result
                     method = "trafilatura"
                 else:
@@ -346,6 +504,11 @@ async def fetch_and_clean(url: str) -> tuple[str, str, str]:
                         method = "beautifulsoup"
 
     if len(result) > _MAX_CHARS:
-        result = result[:_MAX_CHARS]
+        # Keep head + tail so menus where drinks are at the top and food at the
+        # bottom both survive truncation.  The middle (navigation, promo text,
+        # duplicate descriptions) is the least-valuable content to lose.
+        head = result[: _MAX_CHARS * 2 // 3]
+        tail = result[-(_MAX_CHARS // 3) :]
+        result = head + "\n...[middle content omitted for length]...\n" + tail
 
     return result, final_url, method

@@ -12,7 +12,7 @@ from tools.web_fetch import (
     _extract_nextjs_rsc,
     _extract_trafilatura,
     _extract_with_playwright,
-    _looks_like_menu,
+    looks_like_menu,
     fetch_and_clean,
 )
 
@@ -196,20 +196,55 @@ def test_next_data_malformed_json_returns_none():
 # _looks_like_menu helper
 # ---------------------------------------------------------------------------
 
-def test_looks_like_menu_usd_price():
-    assert _looks_like_menu("Fish Tacos $12.50")
+def test_looks_like_menu_prices_alone_sufficient():
+    # 3 price hits = 2pts → meets threshold on its own
+    assert looks_like_menu("Fish Tacos $12\nSoup $8\nBurger $15")
 
-def test_looks_like_menu_gbp_price():
-    assert _looks_like_menu("Fish and Chips £10")
+def test_looks_like_menu_gbp_prices():
+    assert looks_like_menu("Fish £10\nChips £5\nDessert £7")
 
-def test_looks_like_menu_decimal_price():
-    assert _looks_like_menu("Burger 12.00")
+def test_looks_like_menu_decimal_prices():
+    assert looks_like_menu("Burger 12.00\nSalad 8.50\nDessert 6.00")
 
-def test_looks_like_menu_no_prices():
-    assert not _looks_like_menu("Welcome to our restaurant. Come visit us!")
+def test_looks_like_menu_bare_integer_lines():
+    # US menu style — prices on their own line
+    assert looks_like_menu("Whipped Feta\n9\nZa'atar Bread\n13\nGigante Bean\n10")
+
+def test_looks_like_menu_no_prices_section_and_culinary():
+    # High-end menu without prices — passes via section headers + culinary vocab
+    text = (
+        "Starters\n"
+        "Seared scallops with cauliflower purée and truffle oil\n"
+        "Burrata with roasted heirloom tomatoes and basil\n\n"
+        "Mains\n"
+        "Braised short rib with red wine reduction and gnocchi\n"
+        "Grilled sea bass with sautéed spinach and lemon aioli\n"
+    )
+    assert looks_like_menu(text)
+
+def test_looks_like_menu_dietary_markers_boost():
+    # Dietary markers + section header + a culinary term = 3pts
+    text = "Mains\nRoasted beetroot salad (v) (gf)\nGrilled halloumi with harissa"
+    assert looks_like_menu(text)
+
+def test_looks_like_menu_generic_homepage_rejected():
+    assert not looks_like_menu(
+        "Welcome to our restaurant. We are open Tuesday to Sunday. "
+        "Book a table online or call us. Follow us on Instagram."
+    )
+
+def test_looks_like_menu_cloudflare_block_rejected():
+    assert not looks_like_menu(
+        "This website is using a security service to protect itself from online attacks. "
+        "The action you just performed triggered the security solution."
+    )
+
+def test_looks_like_menu_single_price_not_enough():
+    # 1 price = 1pt, no other signals → below threshold
+    assert not looks_like_menu("Fish Tacos $12")
 
 def test_looks_like_menu_empty():
-    assert not _looks_like_menu("")
+    assert not looks_like_menu("")
 
 
 # ---------------------------------------------------------------------------
@@ -365,13 +400,15 @@ async def test_fetch_falls_back_to_beautifulsoup_when_playwright_unavailable():
 
 @pytest.mark.asyncio
 async def test_fetch_falls_back_to_beautifulsoup():
+    """With no structured data and playwright mocked off, falls back to beautifulsoup."""
     plain_html = "<html><body><p>Fish Curry £12</p></body></html>"
     mock_response = MagicMock()
     mock_response.text = plain_html
     mock_response.url = "https://example.com/menu"
     mock_response.raise_for_status = MagicMock()
 
-    with patch("tools.web_fetch.httpx.AsyncClient") as mock_client_cls:
+    with patch("tools.web_fetch.httpx.AsyncClient") as mock_client_cls, \
+         patch("tools.web_fetch._extract_with_playwright", new_callable=AsyncMock, return_value=None):
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -380,10 +417,8 @@ async def test_fetch_falls_back_to_beautifulsoup():
 
         text, url, method = await fetch_and_clean("https://example.com/menu")
 
-    # trafilatura may or may not extract anything from minimal HTML,
-    # so method is either trafilatura or beautifulsoup
-    assert method in ("trafilatura", "beautifulsoup")
-    assert "Fish Curry" in text or isinstance(text, str)
+    assert method == "beautifulsoup"
+    assert "Fish Curry" in text
 
 
 @pytest.mark.asyncio
@@ -439,14 +474,18 @@ async def test_playwright_dismisses_cookie_banner_before_menu_extraction():
 
 @pytest.mark.asyncio
 async def test_fetch_truncates_long_content():
-    # 20k of text should be truncated to _MAX_CHARS
-    long_html = "<html><body>" + ("word " * 5000) + "</body></html>"
+    # Content well over _MAX_CHARS (32000) should be truncated; head+tail strategy
+    # means we keep roughly 2/3 from head + 1/3 from tail with a separator.
+    # Use "item " so trafilatura skips it but beautifulsoup returns 45 000 chars.
+    long_html = "<html><body>" + ("item " * 9000) + "</body></html>"
     mock_response = MagicMock()
     mock_response.text = long_html
     mock_response.url = "https://example.com"
     mock_response.raise_for_status = MagicMock()
 
-    with patch("tools.web_fetch.httpx.AsyncClient") as mock_client_cls:
+    with patch("tools.web_fetch.httpx.AsyncClient") as mock_client_cls, \
+         patch("tools.web_fetch._extract_trafilatura", return_value=None), \
+         patch("tools.web_fetch._extract_with_playwright", new_callable=AsyncMock, return_value=None):
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -455,4 +494,6 @@ async def test_fetch_truncates_long_content():
 
         text, _, _ = await fetch_and_clean("https://example.com")
 
-    assert len(text) <= 12000
+    # Total is _MAX_CHARS + small separator overhead
+    assert len(text) <= 32100
+    assert "middle content omitted" in text

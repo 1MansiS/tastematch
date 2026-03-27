@@ -8,11 +8,14 @@ class InputType(str, Enum):
     URL = "url"
     IMAGE = "image"
     PDF = "pdf"
+    NAME = "name"      # venue name / address free-text query
     UNKNOWN = "unknown"
 
 
 def classify_input(user_input: str) -> InputType:
     stripped = user_input.strip()
+    if not stripped:
+        return InputType.UNKNOWN
     if stripped.startswith(("http://", "https://")):
         path_part = stripped.split("?")[0].split("#")[0]
         if path_part.lower().endswith(".pdf"):
@@ -23,4 +26,5 @@ def classify_input(user_input: str) -> InputType:
         return InputType.IMAGE
     if ext == ".pdf":
         return InputType.PDF
-    return InputType.UNKNOWN
+    # Plain text — treat as venue name / address
+    return InputType.NAME
